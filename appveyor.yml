@@ -5,29 +5,36 @@ environment:
   npm_config_cache: C:\npm-cache
 
 install:
-  - ps: Install-Product node $env:nodejs_version
-  - npm install -g npm@6
-  - npm install
+  - ps: |
+      Install-Product node $env:nodejs_version
+      npm install -g npm@6
 
 build_script:
-  - npm run dist --if-present
-  - npm run build --if-present
+  - ps: |
+      npm install
+      npm run dist 2>&1
+      if ($LASTEXITCODE -ne 0) { Write-Host "dist failed, trying build..."; npm run build 2>&1 }
 
 artifacts:
   - path: release\*.exe
     name: RouterX-Admin-Windows
   - path: release\*.nupkg
     name: RouterX-Admin-Package
+  - path: release\**\*
+    name: RouterX-Admin-Release
 
 deploy:
   - provider: GitHub
     release: $(APPVEYOR_REPO_TAG_NAME)
     description: "RouterX Admin Windows Build"
     auth_token: "%GITHUB_TOKEN%"
-    artifact: RouterX-Admin-Windows
+    artifact: RouterX-Admin-Release
     on:
       branch: main
       appveyor_repo_tag: true
 
 on_failure:
-  - ps: Get-ChildItem . -Recurse -Filter "*.log" | Select -Expand FullName | ForEach-Object { Get-Content $_ | Select -Last 10 }
+  - ps: |
+      Write-Host "Build failed. Checking logs..."
+      Get-ChildItem . -Recurse -Filter "*.log" | Select-Object -ExpandProperty FullName | ForEach-Object { Write-Host $_; Get-Content $_ | Select-Object -Last 10 }
+      Get-ChildItem release -Recurse -ErrorAction SilentlyContinue | Format-Table Name, Length
