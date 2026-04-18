@@ -20,11 +20,11 @@
       "frontend/**/*"
     ],
     "win": {
-      "certificateFile": false,
-      "signingHashAlgorithm": false,
       "target": [
-        "nsis"
-      ]
+        "portable"
+      ],
+      "certificateFile": false,
+      "signingHashAlgorithm": false
     },
     "mac": {
       "target": [
