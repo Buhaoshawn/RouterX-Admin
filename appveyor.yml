@@ -1,40 +1,31 @@
+version: 1.0.{build}
+
 image: Visual Studio 2022
 
 environment:
   nodejs_version: "20"
-  npm_config_cache: C:\npm-cache
+  ELECTRON_MIRROR: "https://npmmirror.com/mirrors/electron/"
+  ELECTRON_BUILDER_BINARIES_MIRROR: "https://npmmirror.com/mirrors/electron-builder-binaries/"
 
 install:
   - ps: |
-      Install-Product node $env:nodejs_version
       npm install -g npm@6
+      $env:Path = "C:\Users\appveyor\AppData\Roaming\npm;$env:Path"
+
+  - npm install --legacy-peer-deps --no-audit --no-fund
 
 build_script:
-  - ps: |
-      npm install
-      npm run dist 2>&1
-      if ($LASTEXITCODE -ne 0) { Write-Host "dist failed, trying build..."; npm run build 2>&1 }
+  - npm run dist
 
 artifacts:
   - path: release\*.exe
     name: RouterX-Admin-Windows
-  - path: release\*.nupkg
-    name: RouterX-Admin-Package
-  - path: release\**\*
-    name: RouterX-Admin-Release
 
 deploy:
   - provider: GitHub
     release: $(APPVEYOR_REPO_TAG_NAME)
     description: "RouterX Admin Windows Build"
     auth_token: "%GITHUB_TOKEN%"
-    artifact: RouterX-Admin-Release
+    artifact: RouterX-Admin-Windows
     on:
-      branch: main
       appveyor_repo_tag: true
-
-on_failure:
-  - ps: |
-      Write-Host "Build failed. Checking logs..."
-      Get-ChildItem . -Recurse -Filter "*.log" | Select-Object -ExpandProperty FullName | ForEach-Object { Write-Host $_; Get-Content $_ | Select-Object -Last 10 }
-      Get-ChildItem release -Recurse -ErrorAction SilentlyContinue | Format-Table Name, Length
