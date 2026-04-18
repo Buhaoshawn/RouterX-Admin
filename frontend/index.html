@@ -175,6 +175,66 @@ function adminFetch(url, opts = {}) {
   return fetch(url, { ...opts, headers })
 }
 
+
+
+// ====== AdminLogin ======
+const AdminLogin = {
+  template: `
+    <div style="display:flex;align-items:center;justify-content:center;min-height:100vh;background:#0f172a">
+      <div style="background:#1e293b;border:1px solid #334155;border-radius:16px;padding:40px;width:380px">
+        <div style="width:48px;height:48px;background:#f59e0b;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:22px;font-weight:700;color:#fff;margin:0 auto 16px">A</div>
+        <h1 style="font-size:20px;font-weight:700;color:#f1f5f9;text-align:center;margin:0 0 28px">RouterX Admin</h1>
+        <div style="display:flex;flex-direction:column;gap:16px">
+          <div>
+            <div style="font-size:12px;font-weight:600;color:#94a3b8;margin-bottom:6px">用户名</div>
+            <input v-model="username" @keyup.enter="doLogin" placeholder="管理员用户名" style="width:100%;padding:10px 14px;background:#0f172a;border:1px solid #334155;border-radius:8px;color:#f1f5f9;font-size:14px;outline:none;box-sizing:border-box" />
+          </div>
+          <div>
+            <div style="font-size:12px;font-weight:600;color:#94a3b8;margin-bottom:6px">密码</div>
+            <input v-model="password" type="password" @keyup.enter="doLogin" placeholder="密码" style="width:100%;padding:10px 14px;background:#0f172a;border:1px solid #334155;border-radius:8px;color:#f1f5f9;font-size:14px;outline:none;box-sizing:border-box" />
+          </div>
+          <div v-if="error" style="background:#fee2e2;color:#dc2626;padding:10px 14px;border-radius:8px;font-size:13px">{{ error }}</div>
+          <button @click="doLogin" :disabled="loading" style="padding:11px;background:#f59e0b;color:#fff;border:none;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer">{{ loading ? '登录中...' : '登录' }}</button>
+        </div>
+      </div>
+    </div>
+  `,
+  setup() {
+    const username = ref('')
+    const password = ref('')
+    const error = ref('')
+    const loading = ref(false)
+    const router = useRouter()
+
+    function doLogin() {
+      if (!username.value || !password.value) { error.value = '请输入用户名和密码'; return }
+      error.value = ''
+      loading.value = true
+      fetch('/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username: username.value, password: password.value })
+      }).then(r => r.json()).then(d => {
+        if (d.code === 200) {
+          if (d.data.user.is_admin !== 1) {
+            error.value = '非管理员账号无权登录'
+            loading.value = false
+            return
+          }
+          localStorage.setItem('admin_token', d.data.token)
+          localStorage.setItem('admin_user', JSON.stringify(d.data.user))
+          router.push('/dashboard')
+        } else {
+          error.value = d.msg || '登录失败'
+        }
+        loading.value = false
+      }).catch(e => { error.value = '网络错误'; loading.value = false })
+    }
+
+    return { username, password, error, loading, doLogin }
+  }
+}
+
 // ====== 路由 ======
 const routes = [
   { path: '/', redirect: '/dashboard' },
@@ -651,63 +711,6 @@ const Settings = {
 }
 
 
-// ====== AdminLogin ======
-const AdminLogin = {
-  template: `
-    <div style="display:flex;align-items:center;justify-content:center;min-height:100vh;background:#0f172a">
-      <div style="background:#1e293b;border:1px solid #334155;border-radius:16px;padding:40px;width:380px">
-        <div style="width:48px;height:48px;background:#f59e0b;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:22px;font-weight:700;color:#fff;margin:0 auto 16px">A</div>
-        <h1 style="font-size:20px;font-weight:700;color:#f1f5f9;text-align:center;margin:0 0 28px">RouterX Admin</h1>
-        <div style="display:flex;flex-direction:column;gap:16px">
-          <div>
-            <div style="font-size:12px;font-weight:600;color:#94a3b8;margin-bottom:6px">用户名</div>
-            <input v-model="username" @keyup.enter="doLogin" placeholder="管理员用户名" style="width:100%;padding:10px 14px;background:#0f172a;border:1px solid #334155;border-radius:8px;color:#f1f5f9;font-size:14px;outline:none;box-sizing:border-box" />
-          </div>
-          <div>
-            <div style="font-size:12px;font-weight:600;color:#94a3b8;margin-bottom:6px">密码</div>
-            <input v-model="password" type="password" @keyup.enter="doLogin" placeholder="密码" style="width:100%;padding:10px 14px;background:#0f172a;border:1px solid #334155;border-radius:8px;color:#f1f5f9;font-size:14px;outline:none;box-sizing:border-box" />
-          </div>
-          <div v-if="error" style="background:#fee2e2;color:#dc2626;padding:10px 14px;border-radius:8px;font-size:13px">{{ error }}</div>
-          <button @click="doLogin" :disabled="loading" style="padding:11px;background:#f59e0b;color:#fff;border:none;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer">{{ loading ? '登录中...' : '登录' }}</button>
-        </div>
-      </div>
-    </div>
-  `,
-  setup() {
-    const username = ref('')
-    const password = ref('')
-    const error = ref('')
-    const loading = ref(false)
-    const router = useRouter()
-
-    function doLogin() {
-      if (!username.value || !password.value) { error.value = '请输入用户名和密码'; return }
-      error.value = ''
-      loading.value = true
-      fetch('/api/auth/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username: username.value, password: password.value })
-      }).then(r => r.json()).then(d => {
-        if (d.code === 200) {
-          if (d.data.user.is_admin !== 1) {
-            error.value = '非管理员账号无权登录'
-            loading.value = false
-            return
-          }
-          localStorage.setItem('admin_token', d.data.token)
-          localStorage.setItem('admin_user', JSON.stringify(d.data.user))
-          router.push('/dashboard')
-        } else {
-          error.value = d.msg || '登录失败'
-        }
-        loading.value = false
-      }).catch(e => { error.value = '网络错误'; loading.value = false })
-    }
-
-    return { username, password, error, loading, doLogin }
-  }
-}
 
 
 // Navigation guard for admin auth
