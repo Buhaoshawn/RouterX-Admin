@@ -12,15 +12,30 @@
   "build": {
     "appId": "com.routerx.admin",
     "productName": "RouterX Admin",
-    "windows": {
-      "certificateFile": false,
-      "signingHashAlgorithm": false
+    "directories": {
+      "output": "release"
     },
-    "directories": { "output": "release" },
-    "files": ["src/**/*", "frontend/**/*"],
-    "win": { "target": ["nsis"] },
-    "mac": { "target": ["dmg"] },
-    "linux": { "target": ["AppImage"] }
+    "files": [
+      "src/**/*",
+      "frontend/**/*"
+    ],
+    "win": {
+      "certificateFile": false,
+      "signingHashAlgorithm": false,
+      "target": [
+        "nsis"
+      ]
+    },
+    "mac": {
+      "target": [
+        "dmg"
+      ]
+    },
+    "linux": {
+      "target": [
+        "AppImage"
+      ]
+    }
   },
   "dependencies": {
     "electron-log": "^5.2.4"
