@@ -1,0 +1,635 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>RouterX Admin</title>
+  <script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
+  <script src="https://unpkg.com/vue-router@4/dist/vue-router.global.prod.js"></script>
+  <script src="https://unpkg.com/axios/dist/axios.min.js"></script>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: 'Inter', -apple-system, sans-serif; background: #0f172a; color: #e2e8f0; font-size: 14px; }
+
+    .app-shell { display: flex; flex-direction: column; height: 100vh; }
+
+    /* 标题栏 */
+    .titlebar {
+      height: 40px; background: #1e293b; display: flex; align-items: center;
+      justify-content: space-between; padding: 0 12px; -webkit-app-region: drag;
+      border-bottom: 1px solid #334155; flex-shrink: 0;
+    }
+    .titlebar-left { display: flex; align-items: center; gap: 10px; }
+    .titlebar-logo { width: 22px; height: 22px; background: #f59e0b; border-radius: 5px; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 700; color: #fff; }
+    .titlebar-title { font-size: 13px; font-weight: 600; color: #f1f5f9; }
+    .titlebar-sub { font-size: 11px; color: #64748b; }
+    .titlebar-controls { display: flex; -webkit-app-region: no-drag; }
+    .tb-btn { width: 36px; height: 28px; border: none; background: transparent; color: #94a3b8; cursor: pointer; display: flex; align-items: center; justify-content: center; border-radius: 4px; transition: all .15s; }
+    .tb-btn:hover { background: rgba(255,255,255,.1); color: #f1f5f9; }
+    .tb-btn.close:hover { background: #ef4444; color: #fff; }
+    .tb-btn svg { width: 13px; height: 13px; }
+
+    /* 布局 */
+    .layout { display: flex; flex: 1; overflow: hidden; }
+
+    /* 侧边栏 */
+    .sidebar {
+      width: 200px; background: #1e293b; display: flex; flex-direction: column;
+      padding: 12px 0; flex-shrink: 0; border-right: 1px solid #1e293b;
+    }
+    .sidebar-nav { display: flex; flex-direction: column; gap: 2px; padding: 0 8px; }
+    .nav-item {
+      display: flex; align-items: center; gap: 10px; padding: 10px 12px;
+      border-radius: 8px; color: #94a3b8; cursor: pointer; text-decoration: none;
+      font-size: 13px; transition: all .15s;
+    }
+    .nav-item:hover { background: #334155; color: #f1f5f9; }
+    .nav-item.active { background: #f59e0b; color: #fff; font-weight: 600; }
+    .nav-item svg { width: 18px; height: 18px; flex-shrink: 0; }
+    .nav-section { font-size: 10px; font-weight: 600; color: #475569; text-transform: uppercase; letter-spacing: .1em; padding: 12px 20px 4px; }
+
+    /* 主内容 */
+    .main { flex: 1; overflow-y: auto; padding: 24px; }
+    .main::-webkit-scrollbar { width: 6px; }
+    .main::-webkit-scrollbar-thumb { background: #334155; border-radius: 3px; }
+
+    /* 页面标题 */
+    .page-title { font-size: 20px; font-weight: 700; color: #f1f5f9; margin-bottom: 20px; display: flex; align-items: center; gap: 10px; }
+    .page-title span { width: 4px; height: 20px; background: #f59e0b; border-radius: 2px; }
+
+    /* 统计卡片 */
+    .stats-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 16px; margin-bottom: 24px; }
+    .stat-card {
+      background: #1e293b; border: 1px solid #334155; border-radius: 12px;
+      padding: 20px; display: flex; flex-direction: column; gap: 8px;
+    }
+    .stat-label { font-size: 12px; color: #64748b; }
+    .stat-value { font-size: 28px; font-weight: 700; color: #f1f5f9; }
+    .stat-value.green { color: #22c55e; }
+    .stat-value.yellow { color: #f59e0b; }
+    .stat-value.red { color: #ef4444; }
+    .stat-change { font-size: 11px; color: #64748b; }
+
+    /* 表格 */
+    .data-table { width: 100%; border-collapse: collapse; background: #1e293b; border-radius: 12px; overflow: hidden; }
+    .data-table th { text-align: left; padding: 12px 16px; font-size: 11px; font-weight: 600; color: #64748b; text-transform: uppercase; letter-spacing: .05em; background: #0f172a; border-bottom: 1px solid #334155; }
+    .data-table td { padding: 12px 16px; font-size: 13px; color: #cbd5e1; border-bottom: 1px solid #1e293b; }
+    .data-table tr:hover td { background: #334155; }
+    .data-table tr:last-child td { border-bottom: none; }
+
+    /* 标签 */
+    .badge { display: inline-block; padding: 2px 8px; border-radius: 20px; font-size: 11px; font-weight: 600; }
+    .badge.active { background: #dcfce7; color: #16a34a; }
+    .badge.pending { background: #fef9c3; color: #ca8a04; }
+    .badge.paid { background: #dcfce7; color: #16a34a; }
+    .badge.expired { background: #fee2e2; color: #dc2626; }
+    .badge.disabled { background: #fee2e2; color: #dc2626; }
+    .badge.free { background: #e0f2fe; color: #0369a1; }
+    .badge.pro { background: #fef9c3; color: #ca8a04; }
+
+    /* 按钮 */
+    .btn { display: inline-flex; align-items: center; gap: 6px; padding: 6px 14px; border: none; border-radius: 6px; font-size: 12px; font-weight: 600; cursor: pointer; transition: all .15s; }
+    .btn-primary { background: #f59e0b; color: #fff; }
+    .btn-primary:hover { background: #d97706; }
+    .btn-danger { background: #ef4444; color: #fff; }
+    .btn-danger:hover { background: #dc2626; }
+    .btn-secondary { background: #334155; color: #e2e8f0; }
+    .btn-secondary:hover { background: #475569; }
+    .btn-sm { padding: 4px 10px; font-size: 11px; }
+    .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+    /* 表单 */
+    .form-group { margin-bottom: 16px; }
+    .form-label { display: block; font-size: 12px; font-weight: 600; color: #94a3b8; margin-bottom: 6px; }
+    .form-input, .form-select {
+      width: 100%; padding: 8px 12px; background: #0f172a; border: 1px solid #334155;
+      border-radius: 6px; color: #f1f5f9; font-size: 13px; outline: none;
+    }
+    .form-input:focus, .form-select:focus { border-color: #f59e0b; }
+    .form-select option { background: #1e293b; }
+
+    /* 卡片 */
+    .card { background: #1e293b; border: 1px solid #334155; border-radius: 12px; padding: 20px; margin-bottom: 16px; }
+    .card-title { font-size: 14px; font-weight: 600; color: #f1f5f9; margin-bottom: 16px; display: flex; align-items: center; gap: 8px; }
+
+    /* 工具栏 */
+    .toolbar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; gap: 12px; flex-wrap: wrap; }
+    .toolbar-left { display: flex; gap: 8px; align-items: center; }
+    .search-input {
+      padding: 7px 12px; background: #0f172a; border: 1px solid #334155;
+      border-radius: 6px; color: #f1f5f9; font-size: 13px; outline: none; width: 200px;
+    }
+    .search-input:focus { border-color: #f59e0b; }
+
+    /* 分页 */
+    .pagination { display: flex; gap: 4px; align-items: center; justify-content: center; margin-top: 20px; }
+    .page-btn { width: 32px; height: 32px; border: 1px solid #334155; background: #1e293b; color: #94a3b8; border-radius: 6px; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 12px; }
+    .page-btn:hover { background: #334155; color: #f1f5f9; }
+    .page-btn.active { background: #f59e0b; border-color: #f59e0b; color: #fff; }
+    .page-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+    /* 加载 */
+    .loading { text-align: center; padding: 40px; color: #64748b; }
+    .empty { text-align: center; padding: 60px; color: #475569; }
+
+    /* 弹窗 */
+    .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,.7); display: flex; align-items: center; justify-content: center; z-index: 1000; }
+    .modal { background: #1e293b; border: 1px solid #334155; border-radius: 12px; padding: 24px; width: 420px; max-width: 90vw; }
+    .modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+    .modal-title { font-size: 16px; font-weight: 700; color: #f1f5f9; }
+    .modal-close { background: none; border: none; color: #64748b; cursor: pointer; font-size: 18px; padding: 4px; }
+    .modal-close:hover { color: #f1f5f9; }
+    .modal-footer { display: flex; gap: 8px; justify-content: flex-end; margin-top: 20px; padding-top: 16px; border-top: 1px solid #334155; }
+
+    /* 订阅卡片 */
+    .plan-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-bottom: 20px; }
+    .plan-card { background: #0f172a; border: 2px solid #334155; border-radius: 12px; padding: 20px; cursor: pointer; transition: all .15s; }
+    .plan-card:hover { border-color: #f59e0b; }
+    .plan-card.selected { border-color: #f59e0b; background: #1e293b; }
+    .plan-name { font-size: 14px; font-weight: 700; color: #f1f5f9; margin-bottom: 4px; }
+    .plan-price { font-size: 24px; font-weight: 700; color: #f59e0b; margin-bottom: 12px; }
+    .plan-price span { font-size: 12px; color: #64748b; font-weight: 400; }
+    .plan-features { font-size: 12px; color: #94a3b8; display: flex; flex-direction: column; gap: 6px; }
+    .plan-features li { display: flex; align-items: center; gap: 6px; }
+    .plan-features li::before { content: '✓'; color: #22c55e; font-weight: 700; }
+
+    /* 滚动条 */
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-thumb { background: #334155; border-radius: 3px; }
+  </style>
+</head>
+<body>
+<div id="app"></div>
+
+<script>
+const { createApp, ref, computed, onMounted, watch } = Vue
+const { createRouter, createWebHashHistory } = VueRouter
+
+const API = '/api'
+
+// ====== 路由 ======
+const routes = [
+  { path: '/', redirect: '/dashboard' },
+  { path: '/dashboard', component: Dashboard },
+  { path: '/users', component: Users },
+  { path: '/orders', component: Orders },
+  { path: '/subscriptions', component: Subscriptions },
+  { path: '/settings', component: Settings },
+]
+
+const router = createRouter({
+  history: createWebHashHistory(),
+  routes
+})
+
+// ====== App ======
+const App = {
+  template: `
+    <div class="app-shell">
+      <header class="titlebar">
+        <div class="titlebar-left">
+          <div class="titlebar-logo">A</div>
+          <div>
+            <div class="titlebar-title">RouterX Admin</div>
+          </div>
+        </div>
+        <div class="titlebar-controls">
+          <button class="tb-btn" @click="minimize" title="最小化"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="5" y1="12" x2="19" y2="12"/></svg></button>
+          <button class="tb-btn" @click="maximize" title="最大化"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="5" y="5" width="14" height="14" rx="1"/></svg></button>
+          <button class="tb-btn close" @click="close" title="关闭"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="6" y1="6" x2="18" y2="18"/><line x1="6" y1="18" x2="18" y2="6"/></svg></button>
+        </div>
+      </header>
+      <div class="layout">
+        <nav class="sidebar">
+          <div class="sidebar-nav">
+            <router-link to="/dashboard" class="nav-item" active-class="active">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/></svg>
+              总览
+            </router-link>
+            <router-link to="/users" class="nav-item" active-class="active">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+              用户管理
+            </router-link>
+            <router-link to="/orders" class="nav-item" active-class="active">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+              订单管理
+            </router-link>
+            <router-link to="/subscriptions" class="nav-item" active-class="active">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 12V22H4V12"/><path d="M22 7H2v5h20V7z"/><path d="M12 22V7"/><path d="M12 7H7.5a2.5 2.5 0 0 1 0-5C11 2 12 7 12 7z"/><path d="M12 7h4.5a2.5 2.5 0 0 0 0-5C13 2 12 7 12 7z"/></svg>
+              订阅计划
+            </router-link>
+          </div>
+          <div class="sidebar-nav">
+            <div class="nav-section">系统</div>
+            <router-link to="/settings" class="nav-item" active-class="active">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+              系统设置
+            </router-link>
+          </div>
+        </nav>
+        <main class="main">
+          <router-view />
+        </main>
+      </div>
+    </div>
+  `,
+  setup() {
+    function minimize() { window.electronAPI?.windowMinimize?.() }
+    function maximize() { window.electronAPI?.windowMaximize?.() }
+    function close() { window.electronAPI?.windowClose?.() }
+    return { minimize, maximize, close }
+  }
+}
+
+
+// ====== Dashboard ======
+const Dashboard = {
+  template: `
+    <div>
+      <div class="page-title"><span></span>总览</div>
+      <div class="stats-grid" v-if="stats">
+        <div class="stat-card">
+          <div class="stat-label">总用户数</div>
+          <div class="stat-value">{{ stats.total_users }}</div>
+          <div class="stat-change">注册用户总数</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">活跃订阅</div>
+          <div class="stat-value green">{{ stats.active_subscriptions }}</div>
+          <div class="stat-change">当前有效订阅</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">总收入</div>
+          <div class="stat-value yellow">¥{{ stats.total_revenue_cny }}</div>
+          <div class="stat-change">已支付订单总额</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">待处理订单</div>
+          <div class="stat-value" :class="stats.pending_orders > 0 ? 'red' : ''">{{ stats.pending_orders }}</div>
+          <div class="stat-change">等待支付</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">总订单数</div>
+          <div class="stat-value">{{ stats.total_orders }}</div>
+          <div class="stat-change">所有订单记录</div>
+        </div>
+      </div>
+      <div v-if="loading" class="loading">加载中...</div>
+    </div>
+  `,
+  setup() {
+    const stats = ref(null)
+    const loading = ref(true)
+    onMounted(async () => {
+      try {
+        const res = await axios.get(API + '/admin/stats')
+        if (res.data.code === 200) stats.value = res.data.data
+      } catch(e) { console.error(e) }
+      finally { loading.value = false }
+    })
+    return { stats, loading }
+  }
+}
+
+// ====== Users ======
+const Users = {
+  template: `
+    <div>
+      <div class="page-title"><span></span>用户管理</div>
+      <div class="toolbar">
+        <div class="toolbar-left">
+          <input class="search-input" v-model="search" placeholder="搜索用户ID/名称..." @input="doSearch" />
+          <select class="form-select" v-model="filterStatus" @change="loadUsers" style="width:120px">
+            <option value="">全部状态</option>
+            <option value="active">正常</option>
+            <option value="disabled">禁用</option>
+          </select>
+        </div>
+        <button class="btn btn-primary btn-sm" @click="loadUsers">🔄 刷新</button>
+      </div>
+
+      <table class="data-table" v-if="users.length">
+        <thead><tr>
+          <th>用户ID</th><th>平台</th><th>订阅状态</th><th>套餐</th><th>到期时间</th><th>注册时间</th><th>操作</th>
+        </tr></thead>
+        <tbody>
+          <tr v-for="u in users" :key="u.id">
+            <td>{{ u.id }}</td>
+            <td>{{ u.platform || '-' }}</td>
+            <td><span class="badge" :class="u.subscription_status || 'active'">{{ u.subscription_status || '正常' }}</span></td>
+            <td><span class="badge" :class="u.plan_id || 'free'">{{ u.plan_id || 'free' }}</span></td>
+            <td>{{ u.expires_at ? new Date(u.expires_at*1000).toLocaleDateString() : '永久' }}</td>
+            <td>{{ new Date(u.created_at*1000).toLocaleDateString() }}</td>
+            <td>
+              <button class="btn btn-secondary btn-sm" @click="openEdit(u)">编辑</button>
+              <button class="btn btn-danger btn-sm" @click="toggleStatus(u)">{{ u.subscription_status === 'disabled' ? '启用' : '禁用' }}</button>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+      <div v-else class="empty">暂无用户</div>
+
+      <div class="pagination" v-if="totalPages > 1">
+        <button class="page-btn" @click="page--" :disabled="page<=1">‹</button>
+        <button class="page-btn" v-for="p in totalPages" :key="p" :class="p===page?'active':''" @click="page=p;loadUsers()">{{ p }}</button>
+        <button class="page-btn" @click="page++" :disabled="page>=totalPages">›</button>
+      </div>
+
+      <!-- 编辑弹窗 -->
+      <div class="modal-overlay" v-if="showModal" @click.self="showModal=false">
+        <div class="modal">
+          <div class="modal-header">
+            <div class="modal-title">编辑用户 #{{ editingUser?.id }}</div>
+            <button class="modal-close" @click="showModal=false">×</button>
+          </div>
+          <div class="form-group">
+            <div class="form-label">订阅套餐</div>
+            <select class="form-select" v-model="editPlan">
+              <option value="free">免费版</option>
+              <option value="pro_monthly">Pro 月付</option>
+              <option value="pro_yearly">Pro 年付</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <div class="form-label">到期时间（Unix时间戳，留空永久）</div>
+            <input class="form-input" v-model="editExpires" placeholder="例: 1767081600 (2026-01-01)" />
+          </div>
+          <div class="modal-footer">
+            <button class="btn btn-secondary" @click="showModal=false">取消</button>
+            <button class="btn btn-primary" @click="saveUser">保存</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  `,
+  setup() {
+    const users = ref([])
+    const loading = ref(false)
+    const search = ref('')
+    const filterStatus = ref('')
+    const page = ref(1)
+    const totalPages = ref(1)
+    const showModal = ref(false)
+    const editingUser = ref(null)
+    const editPlan = ref('free')
+    const editExpires = ref('')
+
+    async function loadUsers() {
+      loading.value = true
+      try {
+        const res = await axios.get(API + '/admin/users', { params: { page: page.value, page_size: 20 } })
+        if (res.data.code === 200) {
+          users.value = res.data.data || []
+          totalPages.value = Math.max(1, Math.ceil(users.value.length / 20))
+        }
+      } catch(e) { console.error(e) }
+      finally { loading.value = false }
+    }
+
+    function openEdit(u) {
+      editingUser.value = u
+      editPlan.value = u.plan_id || 'free'
+      editExpires.value = u.expires_at || ''
+      showModal.value = true
+    }
+
+    async function saveUser() {
+      try {
+        const expires = editExpires.value ? parseInt(editExpires.value) : null
+        await axios.put(API + '/admin/users/' + editingUser.value.id + '/subscription', {
+          plan_id: editPlan.value, expires_at: expires
+        })
+        showModal.value = false
+        loadUsers()
+      } catch(e) { console.error('保存失败', e) }
+    }
+
+    async function toggleStatus(u) {
+      const newStatus = u.subscription_status === 'disabled' ? 'active' : 'disabled'
+      try {
+        await axios.put(API + '/admin/users/' + u.id + '/status', { subscription_status: newStatus })
+        loadUsers()
+      } catch(e) { console.error(e) }
+    }
+
+    let searchTimer = null
+    function doSearch() {
+      clearTimeout(searchTimer)
+      searchTimer = setTimeout(loadUsers, 300)
+    }
+
+    onMounted(loadUsers)
+    return { users, loading, search, filterStatus, page, totalPages, showModal, editingUser, editPlan, editExpires, loadUsers, openEdit, saveUser, toggleStatus, doSearch }
+  }
+}
+
+// ====== Orders ======
+const Orders = {
+  template: `
+    <div>
+      <div class="page-title"><span></span>订单管理</div>
+      <div class="toolbar">
+        <div class="toolbar-left">
+          <select class="form-select" v-model="filterStatus" @change="loadOrders" style="width:130px">
+            <option value="">全部状态</option>
+            <option value="pending">待支付</option>
+            <option value="paid">已支付</option>
+            <option value="refunded">已退款</option>
+          </select>
+        </div>
+        <button class="btn btn-primary btn-sm" @click="loadOrders">🔄 刷新</button>
+      </div>
+
+      <table class="data-table" v-if="orders.length">
+        <thead><tr>
+          <th>订单号</th><th>用户</th><th>套餐</th><th>金额</th><th>支付方式</th><th>状态</th><th>创建时间</th><th>支付时间</th><th>操作</th>
+        </tr></thead>
+        <tbody>
+          <tr v-for="o in orders" :key="o.order_id">
+            <td style="font-family:monospace;font-size:11px">{{ o.order_id }}</td>
+            <td style="font-size:11px">{{ o.user_id }}</td>
+            <td>{{ o.plan_id }}</td>
+            <td>¥{{ (o.amount/100).toFixed(2) }}</td>
+            <td>{{ o.pay_method || '-' }}</td>
+            <td><span class="badge" :class="o.status">{{ o.status }}</span></td>
+            <td>{{ new Date(o.created_at*1000).toLocaleString() }}</td>
+            <td>{{ o.paid_at ? new Date(o.paid_at*1000).toLocaleString() : '-' }}</td>
+            <td>
+              <button v-if="o.status==='pending'" class="btn btn-primary btn-sm" @click="confirmPaid(o)">确认支付</button>
+              <button v-if="o.status==='paid'" class="btn btn-danger btn-sm" @click="refund(o)">退款</button>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+      <div v-else class="empty">暂无订单</div>
+
+      <div class="pagination" v-if="totalPages > 1">
+        <button class="page-btn" @click="page--;loadOrders()" :disabled="page<=1">‹</button>
+        <button class="page-btn" v-for="p in totalPages" :key="p" :class="p===page?'active':''" @click="page=p;loadOrders()">{{ p }}</button>
+        <button class="page-btn" @click="page++;loadOrders()" :disabled="page>=totalPages">›</button>
+      </div>
+    </div>
+  `,
+  setup() {
+    const orders = ref([])
+    const filterStatus = ref('')
+    const page = ref(1)
+    const totalPages = ref(1)
+
+    async function loadOrders() {
+      try {
+        const params = { page: page.value, page_size: 20 }
+        if (filterStatus.value) params.status = filterStatus.value
+        const res = await axios.get(API + '/admin/orders', { params })
+        if (res.data.code === 200) {
+          orders.value = res.data.data || []
+          totalPages.value = Math.max(1, Math.ceil(orders.value.length / 20))
+        }
+      } catch(e) { console.error(e) }
+    }
+
+    async function confirmPaid(o) {
+      if (!confirm('确认用户已支付？')) return
+      try {
+        await axios.put(API + '/admin/orders/' + o.order_id, { status: 'paid' })
+        loadOrders()
+      } catch(e) { console.error(e) }
+    }
+
+    async function refund(o) {
+      if (!confirm('确认退款？')) return
+      try {
+        await axios.put(API + '/admin/orders/' + o.order_id, { status: 'refunded' })
+        loadOrders()
+      } catch(e) { console.error(e) }
+    }
+
+    onMounted(loadOrders)
+    return { orders, filterStatus, page, totalPages, loadOrders, confirmPaid, refund }
+  }
+}
+
+// ====== Subscriptions ======
+const Subscriptions = {
+  template: `
+    <div>
+      <div class="page-title"><span></span>订阅计划管理</div>
+      <div class="card">
+        <div class="card-title">📦 当前套餐配置</div>
+        <div class="plan-grid">
+          <div class="plan-card" v-for="(plan, key) in plans" :key="key">
+            <div class="plan-name">{{ plan.name }}</div>
+            <div class="plan-price">¥{{ (plan.price/100).toFixed(0) }}<span v-if="plan.price>0">/{{ plan.duration_days==30?'月':'年' }}</span><span v-else>免费</span></div>
+            <ul class="plan-features">
+              <li>AI分析: {{ plan.ai_analysis_limit===-1?'无限':plan.ai_analysis_limit+'次/天' }}</li>
+              <li>平台: {{ plan.platform_limit===99?'全部':'1个' }}</li>
+              <li>封面生成: {{ plan.cover_generation?'✓':'✗' }}</li>
+              <li>自动剪辑: {{ plan.auto_clip?'✓':'✗' }}</li>
+              <li>定时发布: {{ plan.scheduled_post?'✓':'✗' }}</li>
+              <li>账号数: {{ plan.account_limit===999?'无限':plan.account_limit }}</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-title">⚙️ 支付接口配置</div>
+        <div class="form-group">
+          <div class="form-label">微信商户号 (WECHAT_MCHID)</div>
+          <input class="form-input" v-model="cfg.wechat_mchid" placeholder="微信支付商户号" />
+        </div>
+        <div class="form-group">
+          <div class="form-label">微信 V3 API密钥</div>
+          <input class="form-input" v-model="cfg.wechat_v3_key" type="password" placeholder="微信支付V3密钥" />
+        </div>
+        <div class="form-group">
+          <div class="form-label">支付宝 AppID</div>
+          <input class="form-input" v-model="cfg.alipay_appid" placeholder="支付宝应用AppID" />
+        </div>
+        <div class="form-group">
+          <div class="form-label">Stripe Secret Key</div>
+          <input class="form-input" v-model="cfg.stripe_key" type="password" placeholder="sk_live_..." />
+        </div>
+        <button class="btn btn-primary" @click="saveConfig">保存配置</button>
+        <span v-if="saved" style="color:#22c55e;margin-left:12px;font-size:12px">✓ 已保存</span>
+      </div>
+    </div>
+  `,
+  setup() {
+    const plans = ref({})
+    const cfg = ref({ wechat_mchid: '', wechat_v3_key: '', alipay_appid: '', stripe_key: '' })
+    const saved = ref(false)
+
+    onMounted(async () => {
+      try {
+        const res = await axios.get(API + '/subscription/plans')
+        if (res.data.code === 200) plans.value = res.data.data
+      } catch(e) { console.error(e) }
+      // TODO: 加载已有配置
+    })
+
+    function saveConfig() {
+      // TODO: 保存到后端环境变量
+      saved.value = true
+      setTimeout(() => saved.value = false, 2000)
+    }
+
+    return { plans, cfg, saved, saveConfig }
+  }
+}
+
+// ====== Settings ======
+const Settings = {
+  template: `
+    <div>
+      <div class="page-title"><span></span>系统设置</div>
+      <div class="card">
+        <div class="card-title">🔑 管理员 Token</div>
+        <div class="form-group">
+          <div class="form-label">当前 Token（用于API认证）</div>
+          <input class="form-input" :value="adminToken" readonly style="font-family:monospace;opacity:.6" />
+        </div>
+        <div class="form-group">
+          <div class="form-label">更换 Token</div>
+          <input class="form-input" v-model="newToken" placeholder="输入新Token" />
+        </div>
+        <button class="btn btn-primary" @click="updateToken">更新</button>
+      </div>
+      <div class="card">
+        <div class="card-title">🗄️ 数据库</div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <button class="btn btn-secondary" @click="backupDB">📦 备份数据库</button>
+          <button class="btn btn-secondary" @click="optimizeDB">⚡ 优化数据库</button>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-title">📊 系统信息</div>
+        <div style="font-size:12px;color:#94a3b8;display:grid;gap:8px">
+          <div>版本: 1.0.0</div>
+          <div>后端地址: http://127.0.0.1:5409</div>
+          <div>管理端端口: 18433</div>
+        </div>
+      </div>
+    </div>
+  `,
+  setup() {
+    const adminToken = ref('routerx-admin-secret-2024')
+    const newToken = ref('')
+
+    function updateToken() {
+      if (!newToken.value) return
+      adminToken.value = newToken.value
+      newToken.value = ''
+      alert('Token已更新，请重启后端服务')
+    }
+
+    function backupDB() { alert('备份功能开发中') }
+    function optimizeDB() { alert('优化功能开发中') }
+
+    return { adminToken, newToken, updateToken, backupDB, optimizeDB }
+  }
+}
+
+createApp(App).use(router).mount('#app')
+</script>
+</body>
+</html>

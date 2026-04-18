@@ -1,0 +1,26 @@
+{
+  "name": "routerx-admin",
+  "version": "1.0.0",
+  "description": "RouterX Admin - 会员订阅管理后台",
+  "main": "src/main.js",
+  "scripts": {
+    "start": "electron .",
+    "dev": "electron . --dev"
+  },
+  "build": {
+    "appId": "com.routerx.admin",
+    "productName": "RouterX Admin",
+    "directories": { "output": "release" },
+    "files": ["src/**/*", "frontend/**/*"],
+    "win": { "target": ["nsis"] },
+    "mac": { "target": ["dmg"] },
+    "linux": { "target": ["AppImage"] }
+  },
+  "dependencies": {
+    "electron-log": "^5.2.4"
+  },
+  "devDependencies": {
+    "electron": "^33.3.1",
+    "electron-builder": "^25.1.8"
+  }
+}
