@@ -7,7 +7,7 @@ environment:
 install:
   - ps: Install-Product node $env:nodejs_version
   - npm install -g npm@6
-  - npm ci
+  - npm install
 
 build_script:
   - npm run dist --if-present
