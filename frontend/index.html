@@ -172,6 +172,11 @@ function adminFetch(url, opts = {}) {
   const token = localStorage.getItem('admin_token')
   const headers = { 'Content-Type': 'application/json', ...(opts.headers || {}) }
   if (token) headers['Authorization'] = 'Bearer ' + token
+  // 支持 params: { page: 1 } → ?page=1
+  if (opts.params) {
+    const qs = new URLSearchParams(opts.params).toString()
+    url = url + (url.includes('?') ? '&' : '?') + qs
+  }
   return fetch(url, { ...opts, headers })
 }
 
@@ -314,11 +319,12 @@ const App = {
       localStorage.removeItem('admin_user')
       window.location.hash = '/login'
     }
+    const adminRole = computed(() => { const u = JSON.parse(localStorage.getItem('admin_user') || '{}'); return u.role || 'user_manager' })
     const adminUsername = computed(() => {
       const u = JSON.parse(localStorage.getItem('admin_user') || '{}')
       return u.username || ''
     })
-    return { minimize, maximize, close, adminLogout, adminUsername }
+    return { minimize, maximize, close, adminLogout, adminUsername, adminRole }
   }
 }
 
@@ -387,16 +393,46 @@ const Users = {
           </select>
         </div>
         <button class="btn btn-primary btn-sm" @click="loadUsers">🔄 刷新</button>
+        <button class="btn btn-primary btn-sm" @click="showCreateModal=true" v-if="adminRole === 'super_admin'">+ 添加管理员</button>
+      </div>
+
+      <!-- 创建管理员弹窗 -->
+      <div class="modal-overlay" v-if="showCreateModal" @click.self="showCreateModal=false">
+        <div class="modal">
+          <div class="modal-header">
+            <div class="modal-title">添加管理员</div>
+            <button class="modal-close" @click="showCreateModal=false">×</button>
+          </div>
+          <div class="form-group">
+            <div class="form-label">用户名</div>
+            <input class="form-input" v-model="newAdmin.username" placeholder="设置用户名（至少3字符）" />
+          </div>
+          <div class="form-group">
+            <div class="form-label">密码</div>
+            <input class="form-input" type="password" v-model="newAdmin.password" placeholder="设置密码（至少6字符）" />
+          </div>
+          <div class="form-group">
+            <div class="form-label">角色</div>
+            <select class="form-select" v-model="newAdmin.role">
+              <option value="user_manager">普通管理员</option>
+              <option value="super_admin">超级管理员</option>
+            </select>
+          </div>
+          <div class="modal-footer">
+            <button class="btn btn-secondary" @click="showCreateModal=false">取消</button>
+            <button class="btn btn-primary" @click="createAdmin">创建</button>
+          </div>
+        </div>
       </div>
 
       <table class="data-table" v-if="users.length">
         <thead><tr>
-          <th>用户ID</th><th>平台</th><th>订阅状态</th><th>套餐</th><th>到期时间</th><th>注册时间</th><th>操作</th>
+          <th>用户名</th><th>角色</th><th>订阅状态</th><th>套餐</th><th>到期时间</th><th>注册时间</th><th>操作</th>
         </tr></thead>
         <tbody>
           <tr v-for="u in users" :key="u.id">
-            <td>{{ u.id }}</td>
-            <td>{{ u.platform || '-' }}</td>
+            <td>{{ u.username }}</td>
+            <td><span class="badge" :class="u.role || 'user_manager'">{{ u.role === 'super_admin' ? '超级管理员' : '普通管理员' }}</span></td>
             <td><span class="badge" :class="u.subscription_status || 'active'">{{ u.subscription_status || '正常' }}</span></td>
             <td><span class="badge" :class="u.plan_id || 'free'">{{ u.plan_id || 'free' }}</span></td>
             <td>{{ u.expires_at ? new Date(u.expires_at*1000).toLocaleDateString() : '永久' }}</td>
@@ -422,6 +458,13 @@ const Users = {
           <div class="modal-header">
             <div class="modal-title">编辑用户 #{{ editingUser?.id }}</div>
             <button class="modal-close" @click="showModal=false">×</button>
+          </div>
+          <div class="form-group" v-if="adminRole === 'super_admin'">
+            <div class="form-label">管理员角色</div>
+            <select class="form-select" v-model="editRole">
+              <option value="user_manager">普通管理员</option>
+              <option value="super_admin">超级管理员</option>
+            </select>
           </div>
           <div class="form-group">
             <div class="form-label">订阅套餐</div>
@@ -451,9 +494,13 @@ const Users = {
     const page = ref(1)
     const totalPages = ref(1)
     const showModal = ref(false)
+    const showCreateModal = ref(false)
     const editingUser = ref(null)
+    const editRole = ref('user_manager')
     const editPlan = ref('free')
     const editExpires = ref('')
+    const newAdmin = ref({ username: '', password: '', role: 'user_manager' })
+    const adminRole = computed(() => { const u = JSON.parse(localStorage.getItem('admin_user') || '{}'); return u.role || 'user_manager' })
 
     async function loadUsers() {
       loading.value = true
@@ -469,6 +516,7 @@ const Users = {
 
     function openEdit(u) {
       editingUser.value = u
+      editRole.value = u.role || 'user_manager'
       editPlan.value = u.plan_id || 'free'
       editExpires.value = u.expires_at || ''
       showModal.value = true
@@ -478,17 +526,49 @@ const Users = {
       try {
         const expires = editExpires.value ? parseInt(editExpires.value) : null
         await adminFetch(API + '/admin/users/' + editingUser.value.id + '/subscription', {
-          plan_id: editPlan.value, expires_at: expires
+          method: 'PUT',
+          body: JSON.stringify({ plan_id: editPlan.value, expires_at: expires })
         })
+        // 更新角色（仅 super_admin 可见此字段）
+        if (editRole.value !== editingUser.value.role) {
+          await adminFetch(API + '/admin/users/' + editingUser.value.id + '/role', {
+            method: 'PUT',
+            body: JSON.stringify({ role: editRole.value })
+          })
+        }
         showModal.value = false
         loadUsers()
       } catch(e) { console.error('保存失败', e) }
     }
 
+    async function createAdmin() {
+      if (!newAdmin.value.username || newAdmin.value.password.length < 6) {
+        alert('用户名至少3字符，密码至少6字符')
+        return
+      }
+      try {
+        const res = await adminFetch(API + '/admin/users/create-admin', {
+          method: 'POST',
+          body: JSON.stringify(newAdmin.value)
+        })
+        const data = await res.json()
+        if (data.code === 200) {
+          showCreateModal.value = false
+          newAdmin.value = { username: '', password: '', role: 'user_manager' }
+          loadUsers()
+        } else {
+          alert(data.msg || '创建失败')
+        }
+      } catch(e) { alert('创建失败') }
+    }
+
     async function toggleStatus(u) {
       const newStatus = u.subscription_status === 'disabled' ? 'active' : 'disabled'
       try {
-        await adminFetch(API + '/admin/users/' + u.id + '/status', { subscription_status: newStatus })
+        await adminFetch(API + '/admin/users/' + u.id + '/status', {
+          method: 'PUT',
+          body: JSON.stringify({ subscription_status: newStatus })
+        })
         loadUsers()
       } catch(e) { console.error(e) }
     }
@@ -500,7 +580,7 @@ const Users = {
     }
 
     onMounted(loadUsers)
-    return { users, loading, search, filterStatus, page, totalPages, showModal, editingUser, editPlan, editExpires, loadUsers, openEdit, saveUser, toggleStatus, doSearch }
+    return { users, loading, search, filterStatus, page, totalPages, showModal, showCreateModal, editingUser, editRole, editPlan, editExpires, newAdmin, adminRole, loadUsers, openEdit, saveUser, createAdmin, toggleStatus, doSearch }
   }
 }
 
