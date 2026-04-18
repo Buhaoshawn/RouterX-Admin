@@ -167,14 +167,23 @@ const { createRouter, createWebHashHistory } = VueRouter
 
 const API = '/api'
 
+// Admin API 请求自动附加 token
+function adminFetch(url, opts = {}) {
+  const token = localStorage.getItem('admin_token')
+  const headers = { 'Content-Type': 'application/json', ...(opts.headers || {}) }
+  if (token) headers['Authorization'] = 'Bearer ' + token
+  return fetch(url, { ...opts, headers })
+}
+
 // ====== 路由 ======
 const routes = [
   { path: '/', redirect: '/dashboard' },
-  { path: '/dashboard', component: Dashboard },
-  { path: '/users', component: Users },
-  { path: '/orders', component: Orders },
-  { path: '/subscriptions', component: Subscriptions },
-  { path: '/settings', component: Settings },
+  { path: '/login', component: AdminLogin },
+  { path: '/dashboard', component: Dashboard, meta: { requiresAdmin: true } },
+  { path: '/users', component: Users, meta: { requiresAdmin: true } },
+  { path: '/orders', component: Orders, meta: { requiresAdmin: true } },
+  { path: '/subscriptions', component: Subscriptions, meta: { requiresAdmin: true } },
+  { path: '/settings', component: Settings, meta: { requiresAdmin: true } },
 ]
 
 const router = createRouter({
@@ -191,7 +200,10 @@ const App = {
           <div class="titlebar-logo">A</div>
           <div>
             <div class="titlebar-title">RouterX Admin</div>
+            <div style="font-size:11px;color:#64748b">{{ adminUsername }}</div>
           </div>
+          <div style="display:flex;align-items:center;gap:8px">
+            <button @click="adminLogout" style="background:rgba(255,255,255,.1);border:1px solid #334155;color:#94a3b8;padding:4px 12px;border-radius:6px;cursor:pointer;font-size:12px">退出</button>
         </div>
         <div class="titlebar-controls">
           <button class="tb-btn" @click="minimize" title="最小化"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="5" y1="12" x2="19" y2="12"/></svg></button>
@@ -237,7 +249,16 @@ const App = {
     function minimize() { window.electronAPI?.windowMinimize?.() }
     function maximize() { window.electronAPI?.windowMaximize?.() }
     function close() { window.electronAPI?.windowClose?.() }
-    return { minimize, maximize, close }
+    function adminLogout() {
+      localStorage.removeItem('admin_token')
+      localStorage.removeItem('admin_user')
+      window.location.hash = '/login'
+    }
+    const adminUsername = computed(() => {
+      const u = JSON.parse(localStorage.getItem('admin_user') || '{}')
+      return u.username || ''
+    })
+    return { minimize, maximize, close, adminLogout, adminUsername }
   }
 }
 
@@ -282,7 +303,7 @@ const Dashboard = {
     const loading = ref(true)
     onMounted(async () => {
       try {
-        const res = await axios.get(API + '/admin/stats')
+        const res = await adminFetch(API + '/admin/stats')
         if (res.data.code === 200) stats.value = res.data.data
       } catch(e) { console.error(e) }
       finally { loading.value = false }
@@ -377,7 +398,7 @@ const Users = {
     async function loadUsers() {
       loading.value = true
       try {
-        const res = await axios.get(API + '/admin/users', { params: { page: page.value, page_size: 20 } })
+        const res = await adminFetch(API + '/admin/users', { params: { page: page.value, page_size: 20 } })
         if (res.data.code === 200) {
           users.value = res.data.data || []
           totalPages.value = Math.max(1, Math.ceil(users.value.length / 20))
@@ -396,7 +417,7 @@ const Users = {
     async function saveUser() {
       try {
         const expires = editExpires.value ? parseInt(editExpires.value) : null
-        await axios.put(API + '/admin/users/' + editingUser.value.id + '/subscription', {
+        await adminFetch(API + '/admin/users/' + editingUser.value.id + '/subscription', {
           plan_id: editPlan.value, expires_at: expires
         })
         showModal.value = false
@@ -407,7 +428,7 @@ const Users = {
     async function toggleStatus(u) {
       const newStatus = u.subscription_status === 'disabled' ? 'active' : 'disabled'
       try {
-        await axios.put(API + '/admin/users/' + u.id + '/status', { subscription_status: newStatus })
+        await adminFetch(API + '/admin/users/' + u.id + '/status', { subscription_status: newStatus })
         loadUsers()
       } catch(e) { console.error(e) }
     }
@@ -480,7 +501,7 @@ const Orders = {
       try {
         const params = { page: page.value, page_size: 20 }
         if (filterStatus.value) params.status = filterStatus.value
-        const res = await axios.get(API + '/admin/orders', { params })
+        const res = await adminFetch(API + '/admin/orders', { params })
         if (res.data.code === 200) {
           orders.value = res.data.data || []
           totalPages.value = Math.max(1, Math.ceil(orders.value.length / 20))
@@ -491,7 +512,7 @@ const Orders = {
     async function confirmPaid(o) {
       if (!confirm('确认用户已支付？')) return
       try {
-        await axios.put(API + '/admin/orders/' + o.order_id, { status: 'paid' })
+        await adminFetch(API + '/admin/orders/' + o.order_id, { status: 'paid' })
         loadOrders()
       } catch(e) { console.error(e) }
     }
@@ -499,7 +520,7 @@ const Orders = {
     async function refund(o) {
       if (!confirm('确认退款？')) return
       try {
-        await axios.put(API + '/admin/orders/' + o.order_id, { status: 'refunded' })
+        await adminFetch(API + '/admin/orders/' + o.order_id, { status: 'refunded' })
         loadOrders()
       } catch(e) { console.error(e) }
     }
@@ -561,7 +582,7 @@ const Subscriptions = {
 
     onMounted(async () => {
       try {
-        const res = await axios.get(API + '/subscription/plans')
+        const res = await adminFetch(API + '/subscription/plans')
         if (res.data.code === 200) plans.value = res.data.data
       } catch(e) { console.error(e) }
       // TODO: 加载已有配置
@@ -629,6 +650,84 @@ const Settings = {
   }
 }
 
+
+// ====== AdminLogin ======
+const AdminLogin = {
+  template: `
+    <div style="display:flex;align-items:center;justify-content:center;min-height:100vh;background:#0f172a">
+      <div style="background:#1e293b;border:1px solid #334155;border-radius:16px;padding:40px;width:380px">
+        <div style="width:48px;height:48px;background:#f59e0b;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:22px;font-weight:700;color:#fff;margin:0 auto 16px">A</div>
+        <h1 style="font-size:20px;font-weight:700;color:#f1f5f9;text-align:center;margin:0 0 28px">RouterX Admin</h1>
+        <div style="display:flex;flex-direction:column;gap:16px">
+          <div>
+            <div style="font-size:12px;font-weight:600;color:#94a3b8;margin-bottom:6px">用户名</div>
+            <input v-model="username" @keyup.enter="doLogin" placeholder="管理员用户名" style="width:100%;padding:10px 14px;background:#0f172a;border:1px solid #334155;border-radius:8px;color:#f1f5f9;font-size:14px;outline:none;box-sizing:border-box" />
+          </div>
+          <div>
+            <div style="font-size:12px;font-weight:600;color:#94a3b8;margin-bottom:6px">密码</div>
+            <input v-model="password" type="password" @keyup.enter="doLogin" placeholder="密码" style="width:100%;padding:10px 14px;background:#0f172a;border:1px solid #334155;border-radius:8px;color:#f1f5f9;font-size:14px;outline:none;box-sizing:border-box" />
+          </div>
+          <div v-if="error" style="background:#fee2e2;color:#dc2626;padding:10px 14px;border-radius:8px;font-size:13px">{{ error }}</div>
+          <button @click="doLogin" :disabled="loading" style="padding:11px;background:#f59e0b;color:#fff;border:none;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer">{{ loading ? '登录中...' : '登录' }}</button>
+        </div>
+      </div>
+    </div>
+  `,
+  setup() {
+    const username = ref('')
+    const password = ref('')
+    const error = ref('')
+    const loading = ref(false)
+    const router = useRouter()
+
+    function doLogin() {
+      if (!username.value || !password.value) { error.value = '请输入用户名和密码'; return }
+      error.value = ''
+      loading.value = true
+      fetch('/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username: username.value, password: password.value })
+      }).then(r => r.json()).then(d => {
+        if (d.code === 200) {
+          if (d.data.user.is_admin !== 1) {
+            error.value = '非管理员账号无权登录'
+            loading.value = false
+            return
+          }
+          localStorage.setItem('admin_token', d.data.token)
+          localStorage.setItem('admin_user', JSON.stringify(d.data.user))
+          router.push('/dashboard')
+        } else {
+          error.value = d.msg || '登录失败'
+        }
+        loading.value = false
+      }).catch(e => { error.value = '网络错误'; loading.value = false })
+    }
+
+    return { username, password, error, loading, doLogin }
+  }
+}
+
+
+// Navigation guard for admin auth
+router.beforeEach((to, from, next) => {
+  if (to.meta.requiresAdmin) {
+    const token = localStorage.getItem('admin_token')
+    if (!token) {
+      next('/login')
+      return
+    }
+    const user = JSON.parse(localStorage.getItem('admin_user') || '{}')
+    if (user.is_admin !== 1) {
+      localStorage.removeItem('admin_token')
+      localStorage.removeItem('admin_user')
+      next('/login')
+      return
+    }
+  }
+  next()
+})
 createApp(App).use(router).mount('#app')
 </script>
 </body>
