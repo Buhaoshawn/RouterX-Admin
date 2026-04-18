@@ -22,9 +22,7 @@
     "win": {
       "target": [
         "portable"
-      ],
-      "certificateFile": false,
-      "signingHashAlgorithm": false
+      ]
     },
     "mac": {
       "target": [
