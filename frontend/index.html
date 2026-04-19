@@ -12,58 +12,58 @@
 
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
-:root, [data-theme="dark"] {
-  --bg: #0D0E11;
-  --bg-card: #18181B;
-  --bg-sidebar: #0D0E11;
-  --bg-sidebar-hover: #1F2029;
-  --bg-sidebar-active: #6366F1;
-  --bg-card-hover: #1F2029;
-  --bg-input: #1F2029;
-  --border: #27272A;
-  --text-primary: #FAFAFA;
-  --text-secondary: #A1A1AA;
-  --text-sidebar: #71717A;
-  --text-sidebar-active: #FAFAFA;
-  --accent: #6366F1;
-  --accent-hover: #4F46E5;
-  --accent-light: rgba(99,102,241,.15);
-  --danger: #EF4444;
-  --success: #22C55E;
-  --warning: #F59E0B;
-  --shadow: 0 1px 3px rgba(0,0,0,.4);
-  --radius: 14px;
+[data-theme="dark"], :root {
+  --bg: #161618;
+  --bg-card: #1E1E22;
+  --bg-sidebar: #131315;
+  --bg-sidebar-hover: #232326;
+  --bg-sidebar-active: #5B5BD6;
+  --bg-card-hover: #252528;
+  --bg-input: #232326;
+  --border: #2E2E33;
+  --text-primary: #EEEEE8;
+  --text-secondary: #9090A0;
+  --text-sidebar: #606070;
+  --text-sidebar-active: #EEEEE8;
+  --accent: #5B5BD6;
+  --accent-hover: #4848CC;
+  --accent-light: rgba(91,91,214,.15);
+  --danger: #DC2626;
+  --success: #16A34A;
+  --warning: #D97706;
+  --shadow: 0 1px 3px rgba(0,0,0,.5);
+  --radius: 12px;
   --radius-sm: 8px;
-  --titlebar-bg: #0D0E11;
-  --titlebar-text: #FAFAFA;
-  --scrollbar: #3F3F46;
+  --titlebar-bg: #131315;
+  --titlebar-text: #EEEEE8;
+  --scrollbar: #3A3A40;
   color-scheme: dark;
 }
 [data-theme="light"] {
-  --bg: #FAFAF8;
+  --bg: #FAF7F2;
   --bg-card: #FFFFFF;
-  --bg-sidebar: #F4F1EC;
-  --bg-sidebar-hover: #EDE9E1;
+  --bg-sidebar: #EDE8DC;
+  --bg-sidebar-hover: #E5DDD0;
   --bg-sidebar-active: #6366F1;
-  --bg-card-hover: #F9F7F4;
-  --bg-input: #F4F1EC;
-  --border: #E8E4DF;
-  --text-primary: #1C1917;
-  --text-secondary: #78716C;
-  --text-sidebar: #A8A29E;
+  --bg-card-hover: #F5F2ED;
+  --bg-input: #F0EBE3;
+  --border: #DDD5C8;
+  --text-primary: #2C2416;
+  --text-secondary: #7A6F5D;
+  --text-sidebar: #9B8E7A;
   --text-sidebar-active: #FFFFFF;
-  --accent: #6366F1;
-  --accent-hover: #4F46E5;
-  --accent-light: rgba(99,102,241,.1);
-  --danger: #EF4444;
-  --success: #22C55E;
-  --warning: #F59E0B;
-  --shadow: 0 1px 3px rgba(0,0,0,.08);
-  --radius: 14px;
+  --accent: #5B5BD6;
+  --accent-hover: #4848CC;
+  --accent-light: rgba(91,91,214,.1);
+  --danger: #DC2626;
+  --success: #16A34A;
+  --warning: #D97706;
+  --shadow: 0 1px 3px rgba(44,36,22,.08);
+  --radius: 12px;
   --radius-sm: 8px;
-  --titlebar-bg: #F4F1EC;
-  --titlebar-text: #1C1917;
-  --scrollbar: #D6D3D1;
+  --titlebar-bg: #EDE8DC;
+  --titlebar-text: #2C2416;
+  --scrollbar: #C9BFB0;
   color-scheme: light;
 }
 
@@ -79,6 +79,7 @@ body { font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif; back
 .tb-btn svg { width: 13px; height: 13px; }
 .tb-btn:hover { background: var(--bg-sidebar-hover); color: var(--text-primary); }
 .tb-btn.close:hover { background: var(--danger); color: #fff; }
+.theme-btn { transition: all .15s; }
 .theme-toggle { width: 32px; height: 26px; border: none; background: transparent; color: var(--text-secondary); cursor: pointer; display: flex; align-items: center; justify-content: center; border-radius: 6px; transition: background .15s, color .15s; }
 .theme-toggle svg { width: 14px; height: 14px; }
 .theme-toggle:hover { background: var(--bg-sidebar-hover); color: var(--text-primary); }
@@ -254,6 +255,10 @@ const App = {
             <button @click="adminLogout" style="background:rgba(255,255,255,.1);border:1px solid var(--border);color:var(--text-sidebar);padding:4px 12px;border-radius:6px;cursor:pointer;font-size:12px">退出</button>
         </div>
         <div class="titlebar-controls">
+          <button class="tb-btn theme-btn" @click="toggleTheme" title="切换主题">
+            <svg v-if="theme === 'dark'" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+            <svg v-else viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+          </button>
           <button class="tb-btn" @click="minimize" title="最小化"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="5" y1="12" x2="19" y2="12"/></svg></button>
           <button class="tb-btn" @click="maximize" title="最大化"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="5" y="5" width="14" height="14" rx="1"/></svg></button>
           <button class="tb-btn close" @click="close" title="关闭"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="6" y1="6" x2="18" y2="18"/><line x1="6" y1="18" x2="18" y2="6"/></svg></button>
@@ -294,6 +299,14 @@ const App = {
     </div>
   `,
   setup() {
+    const theme = ref(localStorage.getItem('admin_theme') || 'dark')
+    function toggleTheme() {
+      theme.value = theme.value === 'dark' ? 'light' : 'dark'
+      localStorage.setItem('admin_theme', theme.value)
+      document.documentElement.setAttribute('data-theme', theme.value)
+    }
+    // Apply saved theme on mount
+    document.documentElement.setAttribute('data-theme', theme.value)
     function minimize() { window.electronAPI?.windowMinimize?.() }
     function maximize() { window.electronAPI?.windowMaximize?.() }
     function close() { window.electronAPI?.windowClose?.() }
@@ -307,7 +320,7 @@ const App = {
       const u = JSON.parse(localStorage.getItem('admin_user') || '{}')
       return u.username || ''
     })
-    return { minimize, maximize, close, adminLogout, adminUsername, adminRole }
+    return { minimize, maximize, close, adminLogout, adminUsername, adminRole, theme, toggleTheme }
   }
 }
 
