@@ -239,22 +239,6 @@ const AdminLogin = {
   }
 }
 
-// ====== 路由 ======
-const routes = [
-  { path: '/', redirect: '/dashboard' },
-  { path: '/login', component: AdminLogin },
-  { path: '/dashboard', component: Dashboard, meta: { requiresAdmin: true } },
-  { path: '/users', component: Users, meta: { requiresAdmin: true } },
-  { path: '/orders', component: Orders, meta: { requiresAdmin: true } },
-  { path: '/subscriptions', component: Subscriptions, meta: { requiresAdmin: true } },
-  { path: '/settings', component: Settings, meta: { requiresAdmin: true } },
-]
-
-const router = createRouter({
-  history: createWebHashHistory(),
-  routes
-})
-
 // ====== App ======
 const App = {
   template: `
@@ -789,8 +773,21 @@ const Settings = {
   }
 }
 
+// ====== 路由（放最后，因为组件必须先定义）======
+const routes = [
+  { path: '/', redirect: '/dashboard' },
+  { path: '/login', component: AdminLogin },
+  { path: '/dashboard', component: Dashboard, meta: { requiresAdmin: true } },
+  { path: '/users', component: Users, meta: { requiresAdmin: true } },
+  { path: '/orders', component: Orders, meta: { requiresAdmin: true } },
+  { path: '/subscriptions', component: Subscriptions, meta: { requiresAdmin: true } },
+  { path: '/settings', component: Settings, meta: { requiresAdmin: true } },
+]
 
-
+const router = createRouter({
+  history: createWebHashHistory(),
+  routes
+})
 
 // Navigation guard for admin auth
 router.beforeEach((to, from, next) => {
